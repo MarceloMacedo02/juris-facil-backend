@@ -1,0 +1,23 @@
+spring:
+  main:
+    banner-mode: "off"
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+jurisfacil:
+  jwt:
+    secret: ${JWT_SECRET}
