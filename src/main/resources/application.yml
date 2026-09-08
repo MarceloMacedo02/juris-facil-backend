@@ -3,8 +3,21 @@ spring:
     name: juris-facil-backend
   profiles:
     active: dev
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=30s
 
 management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  health:
+    db:
+      enabled: true
+    readinessstate:
+      enabled: true
   endpoints:
     web:
       exposure:
@@ -13,6 +26,8 @@ management:
     health:
       probes:
         enabled: true
+    prometheus:
+      enabled: true
 
 springdoc:
   api-docs:
@@ -24,4 +39,6 @@ app:
   security:
     rate-limit:
       paths:
+        - /api/auth/login
         - /api/v1/_dev/echo
+        - /api/auth/login

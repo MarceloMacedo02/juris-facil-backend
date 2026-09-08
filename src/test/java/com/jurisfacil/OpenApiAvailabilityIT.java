@@ -47,6 +47,6 @@ class OpenApiAvailabilityIT {
         mockMvc.perform(get("/v3/api-docs/admin"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/_dev/echo']").doesNotExist())
-                .andExpect(jsonPath("$.paths").isEmpty());
+                .andExpect(jsonPath("$.paths['/api/admin/v1/auth/login']").exists());
     }
 }

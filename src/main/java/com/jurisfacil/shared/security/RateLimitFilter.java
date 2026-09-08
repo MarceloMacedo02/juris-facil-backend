@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.springframework.http.MediaType;
+import org.springframework.util.AntPathMatcher;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jurisfacil.shared.exception.ErrorCode;
 import com.jurisfacil.shared.exception.ProblemDetails;
@@ -12,10 +16,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.http.MediaType;
-import org.springframework.util.AntPathMatcher;
-import org.springframework.web.filter.OncePerRequestFilter;
 
 public class RateLimitFilter extends OncePerRequestFilter {
 

@@ -1,0 +1,35 @@
+<configuration>
+    <springProperty scope="context" name="applicationName" source="spring.application.name" defaultValue="juris-facil-backend"/>
+
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <message>message</message>
+                <mdc></mdc>
+            </fieldNames>
+            <mdcKeyFieldName>correlation_id=correlation_id</mdcKeyFieldName>
+            <customFields>{"application":"${applicationName}"}</customFields>
+        </encoder>
+    </appender>
+
+    <appender name="PLAIN_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} [correlation_id=%X{correlation_id}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="JSON_STDOUT"/>
+        </root>
+    </springProfile>
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="PLAIN_STDOUT"/>
+        </root>
+    </springProfile>
+</configuration>

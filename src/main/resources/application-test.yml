@@ -9,3 +9,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:jurisfacil-test-only-secret-3200}
