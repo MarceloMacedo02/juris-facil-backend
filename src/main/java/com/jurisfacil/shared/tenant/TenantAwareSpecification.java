@@ -12,6 +12,10 @@ public final class TenantAwareSpecification {
     public static <T extends TenantAware> Specification<T> byCurrentTenant() {
         TenantContext context = TenantContextHolder.get();
         UUID organizationId = context == null ? null : context.organizationId();
+        return byTenant(organizationId);
+    }
+
+    public static <T extends TenantAware> Specification<T> byTenant(UUID organizationId) {
         return (root, query, criteriaBuilder) -> organizationId == null
                 ? criteriaBuilder.disjunction()
                 : criteriaBuilder.equal(root.get("organizationId"), organizationId);

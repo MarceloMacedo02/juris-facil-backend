@@ -22,11 +22,13 @@ import com.jurisfacil.processes.controller.dto.request.CreateProcessRequest;
 import com.jurisfacil.processes.controller.dto.request.UpdateProcessRequest;
 import com.jurisfacil.processes.controller.dto.request.ProcessStatusRequest;
 import com.jurisfacil.processes.controller.dto.response.ProcessResponse;
+import com.jurisfacil.processes.controller.dto.response.MovementResponse;
 import com.jurisfacil.processes.model.enums.ProcessStatus;
 import com.jurisfacil.processes.service.ProcessCreateService;
 import com.jurisfacil.processes.service.ProcessListService;
 import com.jurisfacil.processes.service.ProcessDetailService;
 import com.jurisfacil.processes.service.ProcessUpdateService;
+import com.jurisfacil.processes.service.MovementListService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -50,6 +52,7 @@ public class ProcessesController {
     private final ProcessCreateService processCreateService;
     private final ProcessDetailService processDetailService;
     private final ProcessUpdateService processUpdateService;
+    private final MovementListService movementListService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -101,6 +104,26 @@ public class ProcessesController {
     })
     public ProcessDetailResponse detail(@PathVariable UUID id) {
         return processDetailService.get(id);
+    }
+
+    @GetMapping("/{id}/movements")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "List process movements in reverse chronological order")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paged movement timeline"),
+            @ApiResponse(responseCode = "400", description = "Invalid pagination"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
+            @ApiResponse(responseCode = "404", description = "Process not found"),
+            @ApiResponse(responseCode = "500", description = "Internal error")
+    })
+    public PageResponse<MovementResponse> movements(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        return movementListService.list(claims.organizationId(), id, page, size);
     }
 
     @PutMapping("/{id}")
