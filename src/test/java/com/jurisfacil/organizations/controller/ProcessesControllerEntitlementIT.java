@@ -57,6 +57,20 @@ class ProcessesControllerEntitlementIT extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.totalItems").value(0));
     }
 
+    @Test
+    void returnsZeroSummaryWhenProcessModuleIsEnabled() throws Exception {
+        UUID organizationId = createOrganization();
+        insertEntitlement(organizationId, true);
+
+        mockMvc.perform(get("/api/v1/processes/summary")
+                .header("Authorization", "Bearer " + token(organizationId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeProcesses").value(0))
+                .andExpect(jsonPath("$.urgentDeadlines").value(0))
+                .andExpect(jsonPath("$.upcomingHearings").value(0))
+                .andExpect(jsonPath("$.documentsCount").value(0));
+    }
+
     private UUID createOrganization() {
         return jdbcTemplate.queryForObject(
                 "INSERT INTO organizations (name, contact_email, status) VALUES (?, ?, 'ACTIVE') RETURNING organization_id",
