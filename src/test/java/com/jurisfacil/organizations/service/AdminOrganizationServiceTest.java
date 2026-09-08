@@ -23,9 +23,8 @@ import com.jurisfacil.organizations.controller.dto.response.CreateOrganizationRe
 import com.jurisfacil.organizations.model.entity.MembershipEntity;
 import com.jurisfacil.organizations.model.entity.OrganizationEntity;
 import com.jurisfacil.organizations.model.entity.SubscriptionEntity;
-import com.jurisfacil.organizations.model.entity.ModuleEntitlementEntity;
+import com.jurisfacil.organizations.model.enums.PlanTier;
 import com.jurisfacil.organizations.repository.MembershipRepository;
-import com.jurisfacil.organizations.repository.ModuleEntitlementRepository;
 import com.jurisfacil.organizations.repository.OrganizationRepository;
 import com.jurisfacil.organizations.repository.SubscriptionRepository;
 import com.jurisfacil.organizations.service.impl.AdminOrganizationServiceImpl;
@@ -37,7 +36,7 @@ class AdminOrganizationServiceTest {
 
     @Mock OrganizationRepository organizationRepository;
     @Mock SubscriptionRepository subscriptionRepository;
-    @Mock ModuleEntitlementRepository entitlementRepository;
+    @Mock EntitlementSeeder entitlementSeeder;
     @Mock MembershipRepository membershipRepository;
     @Mock UserRepository userRepository;
     @Mock EmailGateway emailGateway;
@@ -46,7 +45,7 @@ class AdminOrganizationServiceTest {
     @BeforeEach
     void setUp() {
         service = new AdminOrganizationServiceImpl(organizationRepository, subscriptionRepository,
-                entitlementRepository, membershipRepository, userRepository, emailGateway);
+                entitlementSeeder, membershipRepository, userRepository, emailGateway);
     }
 
     @Test
@@ -80,7 +79,7 @@ class AdminOrganizationServiceTest {
         assertThat(result.ownerMembershipId()).isEqualTo(membershipId);
         assertThat(result.activationToken()).isNotBlank();
         verify(subscriptionRepository).save(any(SubscriptionEntity.class));
-        verify(entitlementRepository).save(any(ModuleEntitlementEntity.class));
+        verify(entitlementSeeder).seed(organizationId, PlanTier.PROFISSIONAL);
         verify(emailGateway).send("owner@example.com", "Organization activation", result.activationToken());
     }
 

@@ -50,7 +50,8 @@ class AdminOnboardingIT extends BaseIntegrationTest {
 
         org.assertj.core.api.Assertions.assertThat(count("organizations")).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThat(count("subscriptions")).isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(count("module_entitlements")).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(count("module_entitlements")).isEqualTo(8);
+        org.assertj.core.api.Assertions.assertThat(countEnabledEntitlements()).isEqualTo(4);
         org.assertj.core.api.Assertions.assertThat(count("memberships")).isEqualTo(1);
     }
 
@@ -88,6 +89,11 @@ class AdminOnboardingIT extends BaseIntegrationTest {
 
     private long count(String table) {
         return jdbcTemplate.queryForObject("SELECT count(*) FROM " + table, Long.class);
+    }
+
+    private long countEnabledEntitlements() {
+        return jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM module_entitlements WHERE enabled = true", Long.class);
     }
 
     private String adminToken() {

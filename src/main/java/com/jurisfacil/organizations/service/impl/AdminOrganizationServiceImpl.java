@@ -15,7 +15,6 @@ import com.jurisfacil.iam.service.RecoveryService;
 import com.jurisfacil.organizations.controller.dto.request.CreateOrganizationRequest;
 import com.jurisfacil.organizations.controller.dto.response.CreateOrganizationResponse;
 import com.jurisfacil.organizations.model.entity.MembershipEntity;
-import com.jurisfacil.organizations.model.entity.ModuleEntitlementEntity;
 import com.jurisfacil.organizations.model.entity.OrganizationEntity;
 import com.jurisfacil.organizations.model.entity.SubscriptionEntity;
 import com.jurisfacil.organizations.model.enums.MembershipRole;
@@ -24,10 +23,10 @@ import com.jurisfacil.organizations.model.enums.OrganizationStatus;
 import com.jurisfacil.organizations.model.enums.PlanTier;
 import com.jurisfacil.organizations.model.enums.SubscriptionStatus;
 import com.jurisfacil.organizations.repository.MembershipRepository;
-import com.jurisfacil.organizations.repository.ModuleEntitlementRepository;
 import com.jurisfacil.organizations.repository.OrganizationRepository;
 import com.jurisfacil.organizations.repository.SubscriptionRepository;
 import com.jurisfacil.organizations.service.AdminOrganizationService;
+import com.jurisfacil.organizations.service.EntitlementSeeder;
 import com.jurisfacil.shared.email.EmailGateway;
 import com.jurisfacil.shared.exception.AbstractBusinessException;
 import com.jurisfacil.shared.exception.ErrorCode;
@@ -46,7 +45,7 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final ModuleEntitlementRepository entitlementRepository;
+    private final EntitlementSeeder entitlementSeeder;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final EmailGateway emailGateway;
@@ -79,11 +78,7 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
                 .planTier(plan)
                 .status(SubscriptionStatus.ACTIVE)
                 .build());
-        entitlementRepository.save(ModuleEntitlementEntity.builder()
-                .organizationId(organization.getId())
-                .moduleCode("PROCESS")
-                .enabled(true)
-                .build());
+        entitlementSeeder.seed(organization.getId(), plan);
 
         UserEntity owner = userRepository.save(UserEntity.builder()
                 .name(request.ownerName().trim())
