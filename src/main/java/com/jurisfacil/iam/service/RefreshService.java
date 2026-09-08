@@ -110,6 +110,19 @@ public class RefreshService {
                 current.isRememberMe());
     }
 
+    @Transactional
+    public void revoke(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return;
+        }
+        refreshSessionRepository.findByTokenHash(sha256(rawToken)).ifPresent(session -> {
+            if (session.getRevokedAt() == null) {
+                session.setRevokedAt(OffsetDateTime.now(ZoneOffset.UTC));
+                refreshSessionRepository.save(session);
+            }
+        });
+    }
+
     private void revokeFamily(UUID userId) {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         refreshSessionRepository.findAllByUser_IdAndRevokedAtIsNull(userId).forEach(session -> {

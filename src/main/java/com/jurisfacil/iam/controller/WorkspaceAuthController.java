@@ -83,6 +83,18 @@ public class WorkspaceAuthController {
                                 .body(new RefreshResponse(refreshed.accessToken(), 900, "Bearer"));
         }
 
+        @PostMapping("/logout")
+        @Operation(summary = "Revoke the current workspace refresh session")
+        @ApiResponse(responseCode = "204", description = "Session revoked")
+        public ResponseEntity<Void> logout(
+                        @CookieValue(name = REFRESH_COOKIE, required = false) String rawToken) {
+                refreshService.revoke(rawToken);
+                ResponseCookie invalidatedCookie = ResponseCookie.from(REFRESH_COOKIE, "")
+                                .httpOnly(true).secure(true).sameSite("Lax").path("/api")
+                                .maxAge(Duration.ZERO).build();
+                return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, invalidatedCookie.toString()).build();
+        }
+
         public record RefreshResponse(String access_token, long expires_in, String token_type) {
         }
 

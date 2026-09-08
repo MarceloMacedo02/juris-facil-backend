@@ -27,6 +27,7 @@ class WorkspaceAuthControllerIT extends BaseIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        jdbcTemplate.update("DELETE FROM audit_events");
         jdbcTemplate.update("DELETE FROM refresh_sessions");
         jdbcTemplate.update("DELETE FROM users");
     }
@@ -67,5 +68,31 @@ class WorkspaceAuthControllerIT extends BaseIntegrationTest {
                 .content("{\"email\":\"lawyer@example.com\",\"password\":\"wrongpass\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test
+    void logoutRevokesRefreshSessionAndClearsCookie() throws Exception {
+        UUID userId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO users (user_id, email, name, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
+                userId, "logout@example.com", "Logout", new BCryptPasswordEncoder().encode("password"));
+
+        var login = mockMvc.perform(post("/api/auth/login")
+                .contentType("application/json")
+                .content("{\"email\":\"logout@example.com\",\"password\":\"password\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String setCookie = login.getResponse().getHeader("Set-Cookie");
+        String rawToken = setCookie.substring(setCookie.indexOf('=') + 1, setCookie.indexOf(';'));
+
+        mockMvc.perform(post("/api/auth/logout")
+                .cookie(new jakarta.servlet.http.Cookie("JF_REFRESH", rawToken)))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge("JF_REFRESH", 0));
+
+        Integer revoked = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM refresh_sessions WHERE user_id = ? AND revoked_at IS NOT NULL",
+                Integer.class, userId);
+        org.assertj.core.api.Assertions.assertThat(revoked).isEqualTo(1);
     }
 }
