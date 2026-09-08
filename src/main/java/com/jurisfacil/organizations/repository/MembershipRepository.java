@@ -6,6 +6,7 @@ import com.jurisfacil.organizations.model.enums.MembershipStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
@@ -17,6 +18,8 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, UU
     List<MembershipEntity> findByOrganizationIdAndStatus(UUID organizationId, MembershipStatus status);
 
     List<MembershipEntity> findByOrganizationId(UUID organizationId);
+
+    List<MembershipEntity> findByOrganizationIdAndIdIn(UUID organizationId, Collection<UUID> ids);
 
     long countByOrganizationIdAndStatusNot(UUID organizationId, MembershipStatus status);
 
