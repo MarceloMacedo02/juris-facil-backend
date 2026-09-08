@@ -24,12 +24,11 @@ class SecurityPermitAllIT {
     private MockMvc mockMvc;
 
     @Test
-    void workspaceEndpointIsOpenWhileJwtIsInactive() throws Exception {
+    void protectedWorkspaceEndpointRejectsMissingToken() throws Exception {
         mockMvc.perform(post("/api/v1/_dev/echo")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Juris-Fácil\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Juris-Fácil"));
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

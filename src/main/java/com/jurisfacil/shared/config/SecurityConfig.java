@@ -12,20 +12,27 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jurisfacil.shared.security.RateLimitConfig;
 import com.jurisfacil.shared.security.RateLimitFilter;
 import com.jurisfacil.shared.tenant.TenantFilter;
+import com.jurisfacil.iam.security.JwtAuthFilter;
+import com.jurisfacil.iam.security.JwtService;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @EnableConfigurationProperties(RateLimitConfig.class)
 public class SecurityConfig {
 
@@ -34,14 +41,20 @@ public class SecurityConfig {
     public SecurityFilterChain workspaceChain(
             HttpSecurity http,
             CorsConfigurationSource corsSource,
-            RateLimitFilter rateLimitFilter) throws Exception {
+            RateLimitFilter rateLimitFilter,
+            JwtService jwtService) throws Exception {
         http
-                .securityMatcher("/api/v1/**")
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                .securityMatcher("/api/auth/**", "/api/v1/**")
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/auth/**", "/api/v1/auth/accept-invite", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .anyRequest().authenticated())
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterAfter(rateLimitFilter, AuthorizationFilter.class);
+                .addFilterBefore(new JwtAuthFilter(jwtService, JwtAuthFilter.Surface.WORKSPACE), AuthorizationFilter.class)
+                .addFilterAfter(rateLimitFilter, AuthorizationFilter.class)
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
+                        (request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
         return http.build();
     }
 
@@ -50,14 +63,20 @@ public class SecurityConfig {
     public SecurityFilterChain adminChain(
             HttpSecurity http,
             CorsConfigurationSource corsSource,
-            RateLimitFilter rateLimitFilter) throws Exception {
+            RateLimitFilter rateLimitFilter,
+            JwtService jwtService) throws Exception {
         http
                 .securityMatcher("/api/admin/**", "/api/admin/v1/**")
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/admin/v1/auth/login").permitAll()
+                        .anyRequest().authenticated())
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterAfter(rateLimitFilter, AuthorizationFilter.class);
+                .addFilterAfter(rateLimitFilter, AuthorizationFilter.class)
+                .addFilterBefore(new JwtAuthFilter(jwtService, JwtAuthFilter.Surface.ADMIN), AuthorizationFilter.class)
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
+                        (request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
         return http.build();
     }
 
@@ -84,6 +103,11 @@ public class SecurityConfig {
     @Bean
     public RateLimitFilter rateLimitFilter(RateLimitConfig rateLimitConfig, ObjectMapper objectMapper) {
         return new RateLimitFilter(rateLimitConfig, objectMapper);
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean

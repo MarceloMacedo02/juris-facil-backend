@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 public enum ErrorCode {
     VALIDATION_FAILED(400),
+    VALIDATION_ERROR(422),
     INVALID_CREDENTIALS(401),
     EXPIRED_TOKEN(401),
     ACCESS_DENIED(403),

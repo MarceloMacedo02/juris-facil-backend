@@ -7,9 +7,13 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
   flyway:
-    enabled: true
+    enabled: false
 
 server:
   port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:jurisfacil-local-development-secret-32}
