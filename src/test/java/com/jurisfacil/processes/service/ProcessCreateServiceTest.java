@@ -101,6 +101,17 @@ class ProcessCreateServiceTest {
                 .isInstanceOf(ProcessCreateService.InvalidResponsibleMemberException.class);
     }
 
+    @Test
+    void rejectsInvalidCnjWithValidationFailure() {
+        CreateProcessRequest invalid = new CreateProcessRequest("invalid", "Título", "TJCE", "Vara",
+                "Fortaleza", null, null, null, null, null, null, List.of(clientParty()));
+        assertThatThrownBy(() -> new ProcessCreateService(entitlementService,
+                new ProcessMutationValidator(membershipRepository), processRepository,
+                processPartyRepository, auditService)
+                .create(UUID.randomUUID(), UUID.randomUUID(), invalid))
+                .isInstanceOf(ProcessCreateService.InvalidCnjException.class);
+    }
+
     private CreateProcessRequest request(List<CreateProcessRequest.PartyInput> parties) {
         return new CreateProcessRequest("00000000000000000000", "Título", "TJCE", "Vara", "Fortaleza",
                 null, null, null, null, null, null, parties);

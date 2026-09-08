@@ -99,7 +99,7 @@ public class ProcessCreateService {
 
     public static final class InvalidCnjException extends AbstractBusinessException {
         public InvalidCnjException() {
-            super(ErrorCode.VALIDATION_ERROR.name(), "CNJ must contain 20 digits.");
+            super(ErrorCode.VALIDATION_FAILED.name(), "CNJ must contain 20 digits.");
         }
     }
 }
