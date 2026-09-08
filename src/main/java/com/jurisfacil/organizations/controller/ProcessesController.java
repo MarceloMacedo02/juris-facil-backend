@@ -43,11 +43,27 @@ public class ProcessesController {
         return new ProcessListResponse(List.of(), 0, 10, 0, 0);
     }
 
+    @GetMapping("/summary")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Return workspace process summary")
+    public ProcessSummaryResponse summary(Authentication authentication) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        entitlementService.assertEnabled(claims.organizationId(), ModuleCode.PROCESS);
+        return new ProcessSummaryResponse(0, 0, 0, 0);
+    }
+
     public record ProcessListResponse(
             List<Object> items,
             int page,
             int size,
             int totalPages,
             int totalItems) {
+    }
+
+    public record ProcessSummaryResponse(
+            int activeProcesses,
+            int urgentDeadlines,
+            int upcomingHearings,
+            int documentsCount) {
     }
 }
