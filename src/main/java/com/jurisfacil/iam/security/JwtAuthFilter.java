@@ -52,7 +52,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private boolean belongsToSurface(JwtClaims claims) {
         return surface == Surface.ADMIN
                 ? claims.organizationId() == null && !claims.platformRoles().isEmpty()
-                : claims.organizationId() != null && claims.platformRoles().isEmpty();
+                : claims.platformRoles().isEmpty();
     }
 
     private UsernamePasswordAuthenticationToken authentication(JwtClaims claims) {

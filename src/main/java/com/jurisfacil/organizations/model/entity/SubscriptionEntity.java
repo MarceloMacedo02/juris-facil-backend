@@ -2,6 +2,7 @@ package com.jurisfacil.organizations.model.entity;
 
 import com.jurisfacil.organizations.model.enums.PlanTier;
 import com.jurisfacil.organizations.model.enums.SubscriptionStatus;
+import com.jurisfacil.shared.tenant.TenantAware;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,7 +29,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 @Table(name = "subscriptions")
-public class SubscriptionEntity {
+public class SubscriptionEntity implements TenantAware {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

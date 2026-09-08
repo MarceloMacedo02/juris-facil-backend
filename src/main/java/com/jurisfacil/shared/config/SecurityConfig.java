@@ -7,6 +7,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -42,7 +43,8 @@ public class SecurityConfig {
             HttpSecurity http,
             CorsConfigurationSource corsSource,
             RateLimitFilter rateLimitFilter,
-            JwtService jwtService) throws Exception {
+            JwtService jwtService,
+            ObjectProvider<TenantFilter> tenantFilterProvider) throws Exception {
         http
                 .securityMatcher("/api/auth/**", "/api/v1/**")
                 .authorizeHttpRequests(authorize -> authorize
@@ -55,6 +57,10 @@ public class SecurityConfig {
                 .addFilterAfter(rateLimitFilter, AuthorizationFilter.class)
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
                         (request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
+        TenantFilter tenantFilter = tenantFilterProvider.getIfAvailable();
+        if (tenantFilter != null) {
+            http.addFilterAfter(tenantFilter, JwtAuthFilter.class);
+        }
         return http.build();
     }
 
@@ -64,7 +70,8 @@ public class SecurityConfig {
             HttpSecurity http,
             CorsConfigurationSource corsSource,
             RateLimitFilter rateLimitFilter,
-            JwtService jwtService) throws Exception {
+            JwtService jwtService,
+            ObjectProvider<TenantFilter> tenantFilterProvider) throws Exception {
         http
                 .securityMatcher("/api/admin/**", "/api/admin/v1/**")
                 .authorizeHttpRequests(authorize -> authorize
@@ -77,6 +84,10 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthFilter(jwtService, JwtAuthFilter.Surface.ADMIN), AuthorizationFilter.class)
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
                         (request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
+        TenantFilter tenantFilter = tenantFilterProvider.getIfAvailable();
+        if (tenantFilter != null) {
+            http.addFilterAfter(tenantFilter, JwtAuthFilter.class);
+        }
         return http.build();
     }
 
@@ -111,12 +122,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("dev")
-    public FilterRegistrationBean<TenantFilter> tenantFilterRegistration() {
-        FilterRegistrationBean<TenantFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new TenantFilter());
-        registration.addUrlPatterns("/*");
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        return registration;
+    @Profile({"dev", "prod"})
+    public TenantFilter tenantFilter() {
+        return new TenantFilter();
     }
 }
