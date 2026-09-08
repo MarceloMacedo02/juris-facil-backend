@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jurisfacil.iam.model.entity.UserEntity;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.iam.model.enums.UserStatus;
 import com.jurisfacil.iam.repository.UserRepository;
 import com.jurisfacil.iam.service.RecoveryService;
@@ -33,6 +36,7 @@ import com.jurisfacil.shared.exception.ErrorCode;
 import com.jurisfacil.shared.util.CnpjCpfValidator;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +53,9 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final EmailGateway emailGateway;
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     @Override
     public CreateOrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -95,6 +102,11 @@ public class AdminOrganizationServiceImpl implements AdminOrganizationService {
                 .inviteExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(ACTIVATION_TTL_DAYS))
                 .build());
         emailGateway.send(email, "Organization activation", activationToken);
+        if (auditService != null) {
+            auditService.record(AuditEvent.builder().action(AuditAction.ORGANIZATION_CREATED)
+                    .organizationId(organization.getId()).resourceType("ORGANIZATION")
+                    .resourceId(organization.getId().toString()).build());
+        }
         return new CreateOrganizationResponse(organization.getId(), membership.getId(), activationToken);
     }
 

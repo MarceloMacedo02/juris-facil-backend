@@ -1,6 +1,9 @@
 package com.jurisfacil.iam.service;
 
 import com.jurisfacil.iam.model.entity.UserEntity;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.iam.repository.RefreshSessionRepository;
 import com.jurisfacil.iam.repository.UserRepository;
 import com.jurisfacil.shared.email.EmailGateway;
@@ -28,20 +31,33 @@ public class RecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final EmailGateway emailGateway;
     private final SecureRandom secureRandom;
+    private final AuditService auditService;
 
     @Autowired
     public RecoveryService(UserRepository userRepository, RefreshSessionRepository refreshSessionRepository,
             PasswordEncoder passwordEncoder, EmailGateway emailGateway) {
-        this(userRepository, refreshSessionRepository, passwordEncoder, emailGateway, new SecureRandom());
+        this(userRepository, refreshSessionRepository, passwordEncoder, emailGateway, new SecureRandom(), null);
     }
 
     RecoveryService(UserRepository userRepository, RefreshSessionRepository refreshSessionRepository,
             PasswordEncoder passwordEncoder, EmailGateway emailGateway, SecureRandom secureRandom) {
+        this(userRepository, refreshSessionRepository, passwordEncoder, emailGateway, secureRandom, null);
+    }
+
+    public RecoveryService(UserRepository userRepository, RefreshSessionRepository refreshSessionRepository,
+            PasswordEncoder passwordEncoder, EmailGateway emailGateway, AuditService auditService) {
+        this(userRepository, refreshSessionRepository, passwordEncoder, emailGateway, new SecureRandom(), auditService);
+    }
+
+    private RecoveryService(UserRepository userRepository, RefreshSessionRepository refreshSessionRepository,
+            PasswordEncoder passwordEncoder, EmailGateway emailGateway, SecureRandom secureRandom,
+            AuditService auditService) {
         this.userRepository = userRepository;
         this.refreshSessionRepository = refreshSessionRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailGateway = emailGateway;
         this.secureRandom = secureRandom;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -77,6 +93,10 @@ public class RecoveryService {
             session.setRevokedAt(OffsetDateTime.now(ZoneOffset.UTC));
             refreshSessionRepository.save(session);
         });
+        if (auditService != null) {
+            auditService.record(AuditEvent.builder().action(AuditAction.PASSWORD_RESET).actorId(user.getId())
+                    .resourceType("USER").resourceId(user.getId().toString()).build());
+        }
     }
 
     private String generateToken() {

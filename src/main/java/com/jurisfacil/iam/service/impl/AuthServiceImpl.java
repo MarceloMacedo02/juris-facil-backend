@@ -19,6 +19,9 @@ import com.jurisfacil.iam.security.JwtClaims;
 import com.jurisfacil.iam.security.JwtService;
 import com.jurisfacil.iam.service.AuthService;
 import com.jurisfacil.iam.service.RefreshService;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.organizations.model.entity.MembershipEntity;
 import com.jurisfacil.organizations.model.enums.MembershipStatus;
 import com.jurisfacil.organizations.repository.MembershipRepository;
@@ -39,22 +42,25 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshService refreshService;
     private final MembershipRepository membershipRepository;
     private final TenantStatusService tenantStatusService;
+    private final AuditService auditService;
 
     @Autowired
     public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
             JwtService jwtService, RefreshService refreshService,
-            MembershipRepository membershipRepository, TenantStatusService tenantStatusService) {
+            MembershipRepository membershipRepository, TenantStatusService tenantStatusService,
+            AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshService = refreshService;
         this.membershipRepository = membershipRepository;
         this.tenantStatusService = tenantStatusService;
+        this.auditService = auditService;
     }
 
     public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
             JwtService jwtService, RefreshService refreshService) {
-        this(userRepository, passwordEncoder, jwtService, refreshService, null, null);
+        this(userRepository, passwordEncoder, jwtService, refreshService, null, null, null);
     }
 
     @Override
@@ -68,6 +74,8 @@ public class AuthServiceImpl implements AuthService {
         }
         if (user.getPasswordHash() == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
             LOGGER.info("AUDIT_LOGIN_FAILED userId={}", user.getId());
+            if (auditService != null) auditService.record(AuditEvent.builder().action(AuditAction.LOGIN_FAILED)
+                    .actorId(user.getId()).resourceType("AUTH").build());
             throw new InvalidCredentialsException();
         }
         return user;
@@ -79,6 +87,8 @@ public class AuthServiceImpl implements AuthService {
         UserEntity user = authenticate(email, password);
         if (user.getPlatformRole() != null) {
             LOGGER.info("AUDIT_LOGIN_FAILED userId={}", user.getId());
+            if (auditService != null) auditService.record(AuditEvent.builder().action(AuditAction.LOGIN_FAILED)
+                    .actorId(user.getId()).resourceType("AUTH").build());
             throw new InvalidCredentialsException();
         }
 
@@ -101,6 +111,8 @@ public class AuthServiceImpl implements AuthService {
                 now.toInstant(), now.plusSeconds(ACCESS_TOKEN_SECONDS).toInstant(), UUID.randomUUID().toString()));
         RefreshService.IssuedSession session = refreshService.issueSession(user, rememberMe, organizationId, ipAddress,
                 userAgent);
+        if (auditService != null) auditService.record(AuditEvent.builder().action(AuditAction.LOGIN_SUCCESS)
+                .actorId(user.getId()).organizationId(organizationId).resourceType("AUTH").build());
         return new AuthenticatedUser(user, accessToken, session.refreshToken());
     }
 

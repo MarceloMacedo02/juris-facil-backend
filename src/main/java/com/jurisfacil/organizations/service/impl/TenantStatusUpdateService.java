@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jurisfacil.organizations.controller.dto.request.UpdateOrganizationStatusRequest;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.organizations.controller.dto.response.UpdateOrganizationStatusResponse;
 import com.jurisfacil.organizations.model.entity.OrganizationEntity;
 import com.jurisfacil.organizations.model.entity.SubscriptionEntity;
@@ -22,6 +25,7 @@ import com.jurisfacil.shared.exception.AbstractBusinessException;
 import com.jurisfacil.shared.exception.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,9 @@ public class TenantStatusUpdateService {
     private final OrganizationRepository organizationRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final TenantStatusService tenantStatusService;
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     public UpdateOrganizationStatusResponse update(UUID organizationId, UpdateOrganizationStatusRequest request) {
         OrganizationEntity organization = organizationRepository.findById(organizationId)
@@ -50,6 +57,10 @@ public class TenantStatusUpdateService {
         tenantStatusService.evict(organizationId);
         LOGGER.info("AUDIT_ORGANIZATION_STATUS_CHANGED organizationId={} previousStatus={} currentStatus={} reason={}",
                 organizationId, previousStatus, nextStatus, request.reason());
+        if (auditService != null) {
+            auditService.record(AuditEvent.builder().action(statusAction(nextStatus)).organizationId(organizationId)
+                    .resourceType("ORGANIZATION").resourceId(organizationId.toString()).build());
+        }
         return new UpdateOrganizationStatusResponse(organizationId, previousStatus, nextStatus.name(),
                 OffsetDateTime.now(ZoneOffset.UTC));
     }
@@ -67,6 +78,14 @@ public class TenantStatusUpdateService {
             case ACTIVE -> SubscriptionStatus.ACTIVE;
             case SUSPENDED -> SubscriptionStatus.SUSPENDED;
             case INACTIVE -> SubscriptionStatus.CANCELLED;
+        };
+    }
+
+    private AuditAction statusAction(OrganizationStatus status) {
+        return switch (status) {
+            case ACTIVE -> AuditAction.ORGANIZATION_ACTIVATED;
+            case SUSPENDED -> AuditAction.ORGANIZATION_SUSPENDED;
+            case INACTIVE -> AuditAction.ORGANIZATION_DEACTIVATED;
         };
     }
 
