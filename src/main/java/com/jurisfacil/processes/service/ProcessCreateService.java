@@ -3,9 +3,6 @@ package com.jurisfacil.processes.service;
 import com.jurisfacil.audit.model.AuditAction;
 import com.jurisfacil.audit.model.AuditEvent;
 import com.jurisfacil.audit.service.AuditService;
-import com.jurisfacil.organizations.model.enums.MembershipRole;
-import com.jurisfacil.organizations.model.enums.MembershipStatus;
-import com.jurisfacil.organizations.repository.MembershipRepository;
 import com.jurisfacil.organizations.model.enums.ModuleCode;
 import com.jurisfacil.organizations.service.EntitlementService;
 import com.jurisfacil.processes.controller.dto.request.CreateProcessRequest;
@@ -28,10 +25,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ProcessCreateService {
 
-    private static final String CNJ_DIGITS_REGEX = "\\d{20}";
-
     private final EntitlementService entitlementService;
-    private final MembershipRepository membershipRepository;
+    private final ProcessMutationValidator mutationValidator;
     private final ProcessRepository processRepository;
     private final ProcessPartyRepository processPartyRepository;
     private final AuditService auditService;
@@ -39,22 +34,13 @@ public class ProcessCreateService {
     @Transactional
     public ProcessResponse create(UUID organizationId, UUID actorId, CreateProcessRequest request) {
         entitlementService.assertEnabled(organizationId, ModuleCode.PROCESS);
-        String cnjNumber = normalizeCnj(request.cnjNumber());
+        String cnjNumber = mutationValidator.normalizeCnj(request.cnjNumber());
         if (cnjNumber != null && processRepository.existsByOrganizationIdAndCnjNumberAndStatusNot(
                 organizationId, cnjNumber, ProcessStatus.CLOSED)) {
             throw new DuplicateProcessException();
         }
-        if (request.parties().stream().filter(CreateProcessRequest.PartyInput::isClient).count() > 1) {
-            throw new MultipleClientPartiesException();
-        }
-        if (request.responsibleMemberId() != null && !membershipRepository
-                .findById(request.responsibleMemberId())
-                .filter(member -> organizationId.equals(member.getOrganizationId()))
-                .filter(member -> member.getRole() == MembershipRole.LAWYER)
-                .filter(member -> member.getStatus() == MembershipStatus.ACTIVE)
-                .isPresent()) {
-            throw new InvalidResponsibleMemberException();
-        }
+        mutationValidator.validateParties(request.parties());
+        mutationValidator.validateResponsible(organizationId, request.responsibleMemberId());
 
         ProcessEntity process = processRepository.save(ProcessEntity.builder()
                 .organizationId(organizationId)
@@ -92,19 +78,6 @@ public class ProcessCreateService {
         return ProcessResponse.from(process);
     }
 
-    private String normalizeCnj(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        if (!value.matches("\\d{20}|\\d{7}-\\d{2}\\.\\d{4}\\.\\d\\.\\d{2}\\.\\d{4}")) {
-            throw new InvalidCnjException();
-        }
-        String digits = value.replaceAll("\\D", "");
-        if (!digits.matches(CNJ_DIGITS_REGEX)) {
-            throw new InvalidCnjException();
-        }
-        return digits;
-    }
 
     public static final class DuplicateProcessException extends AbstractBusinessException {
         public DuplicateProcessException() {

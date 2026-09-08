@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jurisfacil.iam.security.JwtClaims;
@@ -18,11 +19,14 @@ import com.jurisfacil.processes.controller.dto.response.PageResponse;
 import com.jurisfacil.processes.controller.dto.response.ProcessListItem;
 import com.jurisfacil.processes.controller.dto.response.ProcessDetailResponse;
 import com.jurisfacil.processes.controller.dto.request.CreateProcessRequest;
+import com.jurisfacil.processes.controller.dto.request.UpdateProcessRequest;
+import com.jurisfacil.processes.controller.dto.request.ProcessStatusRequest;
 import com.jurisfacil.processes.controller.dto.response.ProcessResponse;
 import com.jurisfacil.processes.model.enums.ProcessStatus;
 import com.jurisfacil.processes.service.ProcessCreateService;
 import com.jurisfacil.processes.service.ProcessListService;
 import com.jurisfacil.processes.service.ProcessDetailService;
+import com.jurisfacil.processes.service.ProcessUpdateService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -32,6 +36,8 @@ import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 @RestController
 @RequestMapping("/api/v1/processes")
@@ -43,6 +49,7 @@ public class ProcessesController {
     private final ProcessListService processListService;
     private final ProcessCreateService processCreateService;
     private final ProcessDetailService processDetailService;
+    private final ProcessUpdateService processUpdateService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -94,6 +101,38 @@ public class ProcessesController {
     })
     public ProcessDetailResponse detail(@PathVariable UUID id) {
         return processDetailService.get(id);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'LAWYER')")
+    @Operation(summary = "Update process metadata and parties")
+    public ProcessResponse update(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @RequestHeader(value = "If-Match", required = false) String ifMatch,
+            @Valid @RequestBody UpdateProcessRequest request) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        return processUpdateService.update(claims.organizationId(), claims.sub(), id,
+                processUpdateService.parseIfMatch(ifMatch), request);
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'LAWYER')")
+    @Operation(summary = "Change process status")
+    public ProcessResponse status(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @Valid @RequestBody ProcessStatusRequest request) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        return processUpdateService.changeStatus(claims.organizationId(), claims.sub(), id, request);
+    }
+
+    @PostMapping("/{id}/archive")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'LAWYER')")
+    @Operation(summary = "Archive process")
+    public ProcessResponse archive(Authentication authentication, @PathVariable UUID id) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        return processUpdateService.archive(claims.organizationId(), claims.sub(), id);
     }
 
     @GetMapping("/summary")
