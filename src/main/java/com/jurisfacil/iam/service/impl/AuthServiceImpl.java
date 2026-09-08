@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.jurisfacil.iam.model.entity.UserEntity;
 import com.jurisfacil.iam.model.enums.UserStatus;
@@ -18,12 +19,14 @@ import com.jurisfacil.iam.security.JwtClaims;
 import com.jurisfacil.iam.security.JwtService;
 import com.jurisfacil.iam.service.AuthService;
 import com.jurisfacil.iam.service.RefreshService;
+import com.jurisfacil.organizations.model.entity.MembershipEntity;
+import com.jurisfacil.organizations.model.enums.MembershipStatus;
+import com.jurisfacil.organizations.repository.MembershipRepository;
+import com.jurisfacil.organizations.service.TenantStatusService;
 import com.jurisfacil.shared.exception.AbstractBusinessException;
-
-import lombok.RequiredArgsConstructor;
+import com.jurisfacil.shared.exception.ErrorCode;
 
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class AuthServiceImpl implements AuthService {
 
@@ -34,6 +37,25 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshService refreshService;
+    private final MembershipRepository membershipRepository;
+    private final TenantStatusService tenantStatusService;
+
+    @Autowired
+    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+            JwtService jwtService, RefreshService refreshService,
+            MembershipRepository membershipRepository, TenantStatusService tenantStatusService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.refreshService = refreshService;
+        this.membershipRepository = membershipRepository;
+        this.tenantStatusService = tenantStatusService;
+    }
+
+    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+            JwtService jwtService, RefreshService refreshService) {
+        this(userRepository, passwordEncoder, jwtService, refreshService, null, null);
+    }
 
     @Override
     public UserEntity authenticate(String email, String password) {
@@ -60,11 +82,24 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
 
+        UUID organizationId = null;
+        String role = null;
+        if (membershipRepository != null) {
+            MembershipEntity membership = membershipRepository.findByUserIdAndStatusNot(user.getId(), MembershipStatus.INACTIVE)
+                    .stream().findFirst().orElse(null);
+            if (membership != null) {
+                organizationId = membership.getOrganizationId();
+                role = membership.getRole().name();
+                if (tenantStatusService != null && !tenantStatusService.isActive(organizationId)) {
+                    throw new TenantSuspendedException();
+                }
+            }
+        }
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         String accessToken = jwtService.issueAccessToken(new JwtClaims(
-                user.getId(), user.getName(), user.getEmail(), null, null, List.of(), List.of(),
+                user.getId(), user.getName(), user.getEmail(), organizationId, role, List.of(), List.of(),
                 now.toInstant(), now.plusSeconds(ACCESS_TOKEN_SECONDS).toInstant(), UUID.randomUUID().toString()));
-        RefreshService.IssuedSession session = refreshService.issueSession(user, rememberMe, null, ipAddress,
+        RefreshService.IssuedSession session = refreshService.issueSession(user, rememberMe, organizationId, ipAddress,
                 userAgent);
         return new AuthenticatedUser(user, accessToken, session.refreshToken());
     }
@@ -78,6 +113,12 @@ public class AuthServiceImpl implements AuthService {
     public static class AccessDeniedException extends AbstractBusinessException {
         public AccessDeniedException() {
             super("ACCESS_DENIED", "Access is denied.");
+        }
+    }
+
+    public static class TenantSuspendedException extends AbstractBusinessException {
+        public TenantSuspendedException() {
+            super(ErrorCode.TENANT_SUSPENDED.name(), "Workspace is suspended.");
         }
     }
 }

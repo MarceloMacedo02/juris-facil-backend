@@ -3,6 +3,10 @@ spring:
     name: juris-facil-backend
   profiles:
     active: dev
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=30s
 
 management:
   prometheus:
