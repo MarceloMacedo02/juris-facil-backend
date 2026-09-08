@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jurisfacil.iam.model.entity.UserEntity;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.iam.repository.UserRepository;
 import com.jurisfacil.iam.security.JwtClaims;
 import com.jurisfacil.iam.security.JwtService;
@@ -29,6 +32,7 @@ import com.jurisfacil.shared.exception.AbstractBusinessException;
 import com.jurisfacil.shared.exception.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +47,9 @@ public class InviteAcceptanceServiceImpl implements InviteAcceptanceService {
     private final JwtService jwtService;
     private final RefreshService refreshService;
     private final MembershipMapper membershipMapper;
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     @Override
     public InviteAcceptanceService.AcceptedInvite accept(AcceptInviteRequest request, String ipAddress, String userAgent) {
@@ -77,6 +84,11 @@ public class InviteAcceptanceServiceImpl implements InviteAcceptanceService {
                 membership.getOrganizationId(), membership.getRole().name(), List.of(), List.of(), now.toInstant(),
                 now.plusSeconds(ACCESS_TOKEN_SECONDS).toInstant(), java.util.UUID.randomUUID().toString()));
         MemberResponse member = membershipMapper.toResponse(membership, user);
+        if (auditService != null) {
+            auditService.record(AuditEvent.builder().action(AuditAction.MEMBER_ACCEPTED).actorId(user.getId())
+                    .organizationId(membership.getOrganizationId()).resourceType("MEMBERSHIP")
+                    .resourceId(membership.getId().toString()).build());
+        }
         return new InviteAcceptanceService.AcceptedInvite(
                 new AcceptInviteResponse(accessToken, "Bearer", ACCESS_TOKEN_SECONDS, member),
                 session.refreshToken());

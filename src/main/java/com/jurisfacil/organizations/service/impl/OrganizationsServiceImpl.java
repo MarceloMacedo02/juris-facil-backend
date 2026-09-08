@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jurisfacil.iam.model.entity.UserEntity;
+import com.jurisfacil.audit.model.AuditAction;
+import com.jurisfacil.audit.model.AuditEvent;
+import com.jurisfacil.audit.service.AuditService;
 import com.jurisfacil.iam.model.enums.UserStatus;
 import com.jurisfacil.iam.repository.RefreshSessionRepository;
 import com.jurisfacil.iam.repository.UserRepository;
@@ -36,6 +39,7 @@ import com.jurisfacil.shared.exception.AbstractBusinessException;
 import com.jurisfacil.shared.exception.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +57,9 @@ public class OrganizationsServiceImpl implements OrganizationsService {
     private final MembershipMapper membershipMapper;
     private final OwnerInvariantGuard ownerInvariantGuard;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,6 +98,7 @@ public class OrganizationsServiceImpl implements OrganizationsService {
         membership.setInviteExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(INVITE_TTL_DAYS));
         membership = membershipRepository.save(membership);
         emailGateway.send(user.getEmail(), "Workspace invitation", token);
+        audit(AuditAction.MEMBER_INVITED, organizationId, membership.getId(), user.getId());
         return new InviteMemberResponse(membership.getId(), membership.getStatus().name(), token);
     }
 
@@ -101,7 +109,9 @@ public class OrganizationsServiceImpl implements OrganizationsService {
             ownerInvariantGuard.assertOwnerInvariant(organizationId, membershipId);
         }
         membership.setRole(parseInvitableRole(request.role()));
-        return response(membershipRepository.save(membership));
+        MemberResponse response = response(membershipRepository.save(membership));
+        audit(AuditAction.MEMBER_ROLE_CHANGED, organizationId, membershipId, membership.getUserId());
+        return response;
     }
 
     @Override
@@ -119,6 +129,7 @@ public class OrganizationsServiceImpl implements OrganizationsService {
                 refreshSessionRepository.save(session);
             }
         });
+        audit(AuditAction.MEMBER_DEACTIVATED, organizationId, membershipId, membership.getUserId());
     }
 
     @Override
@@ -149,7 +160,17 @@ public class OrganizationsServiceImpl implements OrganizationsService {
         owner.setRole(MembershipRole.ADMIN);
         target.setRole(MembershipRole.OWNER);
         membershipRepository.save(owner);
-        return response(membershipRepository.save(target));
+        MemberResponse response = response(membershipRepository.save(target));
+        audit(AuditAction.OWNERSHIP_TRANSFERRED, organizationId, membershipId, target.getUserId());
+        return response;
+    }
+
+    private void audit(AuditAction action, UUID organizationId, UUID resourceId, UUID actorId) {
+        if (auditService != null) {
+            auditService.record(AuditEvent.builder().action(action).actorId(actorId)
+                    .organizationId(organizationId).resourceType("MEMBERSHIP")
+                    .resourceId(resourceId == null ? null : resourceId.toString()).build());
+        }
     }
 
     private MemberResponse response(MembershipEntity membership) {
