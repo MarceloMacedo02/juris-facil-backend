@@ -7,6 +7,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jurisfacil.iam.security.JwtClaims;
@@ -14,7 +15,10 @@ import com.jurisfacil.organizations.model.enums.ModuleCode;
 import com.jurisfacil.organizations.service.EntitlementService;
 import com.jurisfacil.processes.controller.dto.response.PageResponse;
 import com.jurisfacil.processes.controller.dto.response.ProcessListItem;
+import com.jurisfacil.processes.controller.dto.request.CreateProcessRequest;
+import com.jurisfacil.processes.controller.dto.response.ProcessResponse;
 import com.jurisfacil.processes.model.enums.ProcessStatus;
+import com.jurisfacil.processes.service.ProcessCreateService;
 import com.jurisfacil.processes.service.ProcessListService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +26,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
 
 @RestController
 @RequestMapping("/api/v1/processes")
@@ -31,6 +38,7 @@ public class ProcessesController {
 
     private final EntitlementService entitlementService;
     private final ProcessListService processListService;
+    private final ProcessCreateService processCreateService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -51,6 +59,25 @@ public class ProcessesController {
         UUID organizationId = claims.organizationId();
         entitlementService.assertEnabled(organizationId, ModuleCode.PROCESS);
         return processListService.list(q, status, page, size);
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'LAWYER')")
+    @Operation(summary = "Create a process in the workspace")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Process created"),
+            @ApiResponse(responseCode = "400", description = "Invalid process data"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+            @ApiResponse(responseCode = "403", description = "Insufficient role or module disabled"),
+            @ApiResponse(responseCode = "409", description = "CNJ already exists")
+    })
+    public ResponseEntity<ProcessResponse> create(
+            Authentication authentication,
+            @Valid @RequestBody CreateProcessRequest request) {
+        JwtClaims claims = (JwtClaims) authentication.getPrincipal();
+        ProcessResponse response = processCreateService.create(
+                claims.organizationId(), claims.sub(), request);
+        return ResponseEntity.status(201).body(response);
     }
 
     @GetMapping("/summary")
