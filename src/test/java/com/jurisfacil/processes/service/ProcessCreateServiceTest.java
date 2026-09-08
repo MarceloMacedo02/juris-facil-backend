@@ -54,7 +54,7 @@ class ProcessCreateServiceTest {
             return process;
         });
 
-        var response = new ProcessCreateService(entitlementService, membershipRepository,
+        var response = new ProcessCreateService(entitlementService, new ProcessMutationValidator(membershipRepository),
                 processRepository, processPartyRepository, auditService)
                 .create(organizationId, actorId, request);
 
@@ -70,7 +70,7 @@ class ProcessCreateServiceTest {
         when(processRepository.existsByOrganizationIdAndCnjNumberAndStatusNot(any(), any(), any()))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, membershipRepository,
+        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, new ProcessMutationValidator(membershipRepository),
                 processRepository, processPartyRepository, auditService)
                 .create(organizationId, UUID.randomUUID(), request(List.of(clientParty()))))
                 .isInstanceOf(ProcessCreateService.DuplicateProcessException.class);
@@ -81,7 +81,7 @@ class ProcessCreateServiceTest {
     void rejectsMoreThanOneClientParty() {
         var parties = List.of(clientParty(), clientParty());
 
-        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, membershipRepository,
+        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, new ProcessMutationValidator(membershipRepository),
                 processRepository, processPartyRepository, auditService)
                 .create(UUID.randomUUID(), UUID.randomUUID(), request(parties)))
                 .isInstanceOf(ProcessCreateService.MultipleClientPartiesException.class);
@@ -95,7 +95,7 @@ class ProcessCreateServiceTest {
                 null, null, null, null, null, memberId, List.of(clientParty()));
         when(membershipRepository.findById(memberId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, membershipRepository,
+        assertThatThrownBy(() -> new ProcessCreateService(entitlementService, new ProcessMutationValidator(membershipRepository),
                 processRepository, processPartyRepository, auditService)
                 .create(organizationId, UUID.randomUUID(), request))
                 .isInstanceOf(ProcessCreateService.InvalidResponsibleMemberException.class);
