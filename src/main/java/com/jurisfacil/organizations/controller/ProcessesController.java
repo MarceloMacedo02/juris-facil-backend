@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,11 +16,13 @@ import com.jurisfacil.organizations.model.enums.ModuleCode;
 import com.jurisfacil.organizations.service.EntitlementService;
 import com.jurisfacil.processes.controller.dto.response.PageResponse;
 import com.jurisfacil.processes.controller.dto.response.ProcessListItem;
+import com.jurisfacil.processes.controller.dto.response.ProcessDetailResponse;
 import com.jurisfacil.processes.controller.dto.request.CreateProcessRequest;
 import com.jurisfacil.processes.controller.dto.response.ProcessResponse;
 import com.jurisfacil.processes.model.enums.ProcessStatus;
 import com.jurisfacil.processes.service.ProcessCreateService;
 import com.jurisfacil.processes.service.ProcessListService;
+import com.jurisfacil.processes.service.ProcessDetailService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -39,6 +42,7 @@ public class ProcessesController {
     private final EntitlementService entitlementService;
     private final ProcessListService processListService;
     private final ProcessCreateService processCreateService;
+    private final ProcessDetailService processDetailService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -78,6 +82,18 @@ public class ProcessesController {
         ProcessResponse response = processCreateService.create(
                 claims.organizationId(), claims.sub(), request);
         return ResponseEntity.status(201).body(response);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Return process details")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Process details"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+            @ApiResponse(responseCode = "404", description = "Process not found")
+    })
+    public ProcessDetailResponse detail(@PathVariable UUID id) {
+        return processDetailService.get(id);
     }
 
     @GetMapping("/summary")

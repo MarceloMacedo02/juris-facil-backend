@@ -11,6 +11,8 @@ public interface ProcessPartyRepository extends JpaRepository<ProcessPartyEntity
 
     List<ProcessPartyEntity> findByOrganizationIdAndProcessId(UUID organizationId, UUID processId);
 
+    List<ProcessPartyEntity> findByOrganizationIdAndProcessIdOrderByCreatedAtAsc(UUID organizationId, UUID processId);
+
     @Query("select p.processId as processId, p.name as name from ProcessPartyEntity p "
             + "where p.client = true and p.processId in :processIds")
     List<ClientNameProjection> findClientNamesByProcessIds(List<UUID> processIds);
